@@ -62,8 +62,6 @@ python3 setup.py check
 python3 setup.py install
 ```
 
-While this repository is private, cloning requires GitHub access to it.
-
 Setup installs the speech recognition service and microphone panel. It checks
 required system tools and may download Python and supporting packages. If a
 system tool is missing, setup tells you what to install before trying again.

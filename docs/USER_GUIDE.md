@@ -34,8 +34,6 @@ python3 setup.py check
 python3 setup.py install
 ```
 
-While this repository is private, cloning requires GitHub access to it.
-
 Setup creates a dedicated Python environment, installs the pinned CPU runtime,
 installs and enables the user service, creates `~/.local/bin/live-dictation`,
 and enables the native plugin. `uv` may download Python 3.12 and dependencies.

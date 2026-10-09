@@ -2,7 +2,7 @@
 
 Status: 0.2.0 — preview release. The automated/local acceptance below is complete;
 a fresh operating-system session and structured natural microphone acceptance remain open.
-The repository is private; the plugin is not listed in the marketplace.
+The repository is public; marketplace listing is pending.
 
 ## Completed on the local baseline
 
