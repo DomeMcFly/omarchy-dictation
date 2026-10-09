@@ -5,16 +5,18 @@ text while speaking or **After recording** for insertion after you stop.
 The native microphone panel controls the model, shortcut and recording overlay.
 
 Status: preview release, not yet listed in the plugin marketplace. See [release checks](RELEASE_CHECKLIST.md)
-for the distinction between automated coverage and outstanding desktop acceptance.
+for completed tests and remaining checks.
 
 ## Requirements
 
 Currently targeted: Linux x86_64, Omarchy Quattro with Lua Hyprland bindings,
-Python 3.12, PipeWire and a working microphone. The tested desktop baseline is
+PipeWire and a working microphone. Run setup with Omarchy’s system `python3`;
+`uv` installs a separate Python 3.12 environment for speech recognition if needed.
+The tested desktop baseline is
 Omarchy 4.0.4, Hyprland 0.56.2 and Quickshell 0.3.1. Other releases are not yet
 claimed as supported.
 
-Required commands: `uv`, `pw-record`, `wtype`, `hyprctl`, `omarchy`,
+Required commands: `git`, `python3`, `uv`, `pw-record`, `wtype`, `hyprctl`, `omarchy`,
 `omarchy-shell`, `systemctl`, `wl-copy`, `xdg-open`, and `luac`.
 On Arch these additional tools are supplied by `uv`, `pipewire`, `wtype`,
 `wl-clipboard`, `xdg-utils`, and `lua`. Setup checks availability and does not run
@@ -23,12 +25,16 @@ missing packages.
 
 ## Install
 
-Run from a checkout in your logged-in Omarchy desktop session:
+In a terminal in your logged-in Omarchy desktop session:
 
 ```sh
+git clone https://github.com/DomeMcFly/omarchy-dictation.git
+cd omarchy-dictation
 python3 setup.py check
 python3 setup.py install
 ```
+
+While this repository is private, cloning requires GitHub access to it.
 
 Setup creates a dedicated Python environment, installs the pinned CPU runtime,
 installs and enables the user service, creates `~/.local/bin/live-dictation`,
@@ -66,7 +72,7 @@ Focus a text field and press the configured shortcut to start, then press it
 again to finish. No Enter key is sent. The application does not automatically
 change the clipboard.
 
-Click the microphone to open settings. Click outside, press Escape or click the
+Click the microphone icon in the Omarchy bar to open settings. Click outside, press Escape or click the
 microphone again to dismiss. Opening settings finishes an active dictation first.
 Appearance settings save immediately; shortcut changes use **Apply**.
 **Preview** displays a simulated indicator without recording.
@@ -105,7 +111,7 @@ elsewhere, check for conflicts there too.
 | Model unavailable | The saved model is missing, invalid or failed to load; see the error below Model. |
 | Set a shortcut / Check shortcut | Configure a shortcut or resolve the displayed shortcut error. |
 | Connecting… | Waiting for the speech service to connect to the panel. |
-| Service unavailable / Service stopped | Start the backend using the contextual action. |
+| Service unavailable / Service stopped | Choose **Start service** in the panel. |
 | Recording | Microphone session is active. |
 | Finishing… / Transcribing… | Recording has stopped; remaining recognition/output is being completed. |
 
@@ -119,8 +125,8 @@ Omarchy's other widgets. **Highlight microphone** colors it during recording.
 With the overlay disabled, a red recording indicator is mandatory and that
 toggle is shown checked and disabled. **Show overlay status** adds Recording,
 Finishing, Transcribing or Preview to every overlay style. **Animate overlay**
-makes the waveform/circle react to microphone level; off keeps the indicator
-static. The circle also has a gentle breathing motion. Preview uses simulated
+makes the indicator react to microphone level and adds a gentle breathing
+motion to the circle. Turning it off stops both animations. Preview uses simulated
 levels and never opens the microphone. The larger microphone beside the panel
 title identifies the app and is not a separate record button.
 
@@ -134,10 +140,9 @@ and quantized exports are not interchangeable with this engine.
 The recommended model is NVIDIA Parakeet, converted to ONNX by Ivan Stupakov:
 [model source](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx),
 [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/).
-Download size is approximately 2.55 GB. The pinned revision and every file's
-integrity are checked before the download becomes selectable. Switching models
-warms the candidate before persisting the selection; a failed load keeps the
-previous model. See [third-party notices](../THIRD_PARTY_NOTICES.md).
+Download size is approximately 2.55 GB. Downloaded files are checked before use.
+A new model must load successfully before the selection is saved; if loading
+fails, the previous model remains selected. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 
 Use **Add model… → Use model folder…** for another compatible local export.
 Existing compatible folders in `~/.local/share/voxtype/models` are discovered
@@ -150,20 +155,15 @@ After changing tabs, windows or workspaces, select an editable field before
 continuing. The overlay indicates activity and screen focus, not text-field
 readiness. Virtual keyboard input outside a text field can trigger app actions.
 
-Live mode follows the currently focused window, including pending words spoken
-before a focus change. With no focused window, it waits until focus returns or
-you stop. After-recording mode captures the target window when you stop and
-checks it before, during and after each output process. A detected focus change
-kills the running output and retains recovery data.
+Keep the intended text field selected until all text has appeared. In Live mode,
+pending words can appear in a window you switch to. With no focused window,
+Dictation waits until focus returns or you stop.
 
-Output uses a Wayland virtual keyboard, not a text-field API. Focus checking and
-keyboard delivery are not atomic. Characters already queued in the compositor
-can still reach a different field or window; switching fields inside the same
-window is not detectable. The application cannot guarantee delivery to a
-particular text field. Keep focus stable through completion, especially for
-sensitive text. A successful result means the keyboard process completed, not
-that an application acknowledged every character. Failed or ambiguous output is
-never retried automatically.
+After-recording mode inserts into the window focused when you stop recording.
+It stops insertion if it detects a window change, but some text may still reach
+the new field. Changes between fields in the same window cannot be detected.
+Always check the inserted text. Failed or uncertain output is saved for recovery
+and is not automatically inserted again.
 
 ## Files, privacy and lifecycle
 
@@ -177,10 +177,23 @@ never retried automatically.
 
 XDG variables fall back to the standard directories under your home. Files are
 private to your user. Transcripts are stored locally until you delete them.
-Audio from successful sessions is deleted only after a successful completion
-record is written. Failed, uncertain or context-recovery sessions retain audio.
-Backups and history are excluded from release exports. No retention timer is
-currently implemented. Delete history only while no recording is running.
+Audio is deleted after successful dictation. Failed or uncertain sessions retain
+audio for recovery; audio is also retained when recognition had to recover during
+a long recording. Saved transcripts are not deleted automatically.
+
+### Delete saved dictations
+
+Finish recording and wait for text insertion to complete first. Open
+`~/.local/state/voice-dictation/` in your file manager (or
+`$XDG_STATE_HOME/voice-dictation/` if you customized that location).
+
+Each dictation has a dated folder such as `20261009-221800-a1b2c3`. Delete the
+folders for dictations you no longer need. To also remove the separate copy of
+the latest transcript, delete `latest.txt`. If you delete a dictation offered for
+recovery, dismiss its recovery notice in the panel.
+
+Keep `installation.json`, `setup.lock` and `backups/`: these belong to installation
+and removal, not dictation history. Do not delete the entire parent folder.
 
 The independent service keeps the model warm. Recording requires a connected
 plugin indicator. Disabling/removing the plugin or closing the shell cancels
@@ -199,18 +212,20 @@ python3 ~/.config/omarchy/plugins/dominic.live-dictation/setup.py update
 omarchy restart shell
 ```
 
-For a development checkout, pull the desired revision and run `python3 setup.py
-update` there. Finish recording first. Update refreshes backend dependencies and
-code as well as the UI. Restart the shell after updating: on the tested
-Quickshell version a plugin rescan can retain cached QML components. Models,
-settings and history remain intact.
+If you installed using the clone command above, open that source directory,
+run `git pull --ff-only`, then `python3 setup.py update` and
+`omarchy restart shell`. Finish recording before updating. Models, settings
+and history remain intact.
 
-Run uninstall **before** removing the plugin checkout:
+For an Omarchy-installed plugin, uninstall **before** removing the plugin checkout:
 
 ```sh
 python3 ~/.config/omarchy/plugins/dominic.live-dictation/setup.py uninstall
 omarchy plugin remove dominic.live-dictation
 ```
+
+For the clone-and-setup installation, run `python3 setup.py uninstall` from
+the source directory before deleting it.
 
 Uninstall removes the managed shortcut block, disables/removes the service and
 launcher, and removes unmodified installer-owned files. Files modified outside

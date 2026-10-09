@@ -48,22 +48,30 @@ for test results and remaining work.
 ## Install
 
 Tested on **Omarchy 4.0.4, Hyprland 0.56.2 and Quickshell 0.3.1**, Linux x86_64.
-Requires Python 3.12, PipeWire, a microphone and the desktop tools listed in the
+Use Omarchy’s system `python3` to run setup. Setup uses `uv` to create a separate
+Python 3.12 environment for speech recognition, downloading it if needed. You
+also need PipeWire, a microphone and the tools listed in the
 [user guide](docs/USER_GUIDE.md#requirements).
 
-From the downloaded source directory, in your logged-in Omarchy session:
+In a terminal in your logged-in Omarchy session:
 
 ```sh
+git clone https://github.com/DomeMcFly/omarchy-dictation.git
+cd omarchy-dictation
 python3 setup.py check
 python3 setup.py install
 ```
+
+While this repository is private, cloning requires GitHub access to it.
 
 Setup installs the speech recognition service and microphone panel. It checks
 required system tools and may download Python and supporting packages. If a
 system tool is missing, setup tells you what to install before trying again.
 
-Open the microphone panel and choose **Download recommended** to fetch the
-approximately 2.55 GB Parakeet ONNX model, or select an existing compatible model.
+Click the microphone icon in the Omarchy bar to open settings. Choose
+**Download recommended** and wait for the model to load. This downloads the
+approximately 2.55 GB Parakeet ONNX model. You can also select an existing
+compatible model.
 Supported model: **Parakeet TDT 0.6B v3 ONNX**. Other model formats are not
 supported. The download begins only when you choose it in the panel.
 
@@ -95,8 +103,9 @@ limit. See [storage and lifecycle](docs/USER_GUIDE.md#files-privacy-and-lifecycl
 Keep focus stable while text is being inserted. Live mode follows the focused
 window, including pending words. After-recording output stops on a detected
 window change, but text already being sent can still reach the next field.
-Switching fields within the same window cannot be detected. The overlay follows
-the active screen but cannot tell whether a text field is selected. Select an
+Switching fields within the same window cannot be detected. With **Follow active
+screen** selected, the overlay follows the active screen; a named screen stays
+fixed. Neither setting can tell whether a text field is selected. Select an
 editable field after switching tabs, windows or workspaces before continuing.
 Typing outside a text field may trigger application shortcuts instead.
 

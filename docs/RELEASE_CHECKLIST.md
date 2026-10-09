@@ -1,8 +1,8 @@
 # Release acceptance — 2026-10-09
 
-Status: release candidate. The automated/local acceptance below is complete;
+Status: 0.2.0 — preview release. The automated/local acceptance below is complete;
 a fresh operating-system session and structured natural microphone acceptance remain open.
-Nothing has been published.
+The repository is private; the plugin is not listed in the marketplace.
 
 ## Completed on the local baseline
 
