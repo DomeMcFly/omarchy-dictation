@@ -7,9 +7,7 @@ native microphone panel. No account or cloud transcription service required.
 
 ![Dictation settings and waveform preview in Omarchy](preview.png)
 
-*Native settings panel with a simulated waveform preview. No microphone is used
-for preview. The screenshot predates the screen option rename to **Follow active
-screen**.*
+*Dictation settings with a waveform preview.*
 
 ### Settings at a glance
 
