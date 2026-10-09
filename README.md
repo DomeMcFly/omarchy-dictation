@@ -38,22 +38,20 @@ screen**.*
 - **Model setup in the panel:** download the recommended compatible model or
   select a compatible local folder.
 - **Recovery when something fails:** retains incomplete dictations and offers
-  contextual recovery actions.
+  actions to copy the latest text or open saved dictations.
 
 ## Current status
 
-**0.2.0 — release candidate, not yet published.** Local acceptance includes real
-keyboard delivery into an editor, browser and terminal, installation lifecycle
-checks, model download verification, 66 Python tests and 27 QML checks.
-
-A fresh Omarchy installation and broader natural-speech testing remain open.
-See the [release checklist](docs/RELEASE_CHECKLIST.md) for evidence and limitations.
+**0.2.0 — preview release.** Available for evaluation; not yet listed in the
+plugin marketplace. A fresh Omarchy installation and broader speech testing
+remain to be checked. See the [release checklist](docs/RELEASE_CHECKLIST.md)
+for test results and remaining work.
 
 ## Install
 
 Tested on **Omarchy 4.0.4, Hyprland 0.56.2 and Quickshell 0.3.1**, Linux x86_64.
 Requires Python 3.12, PipeWire, a microphone and the desktop tools listed in the
-[user guide](docs/USER_GUIDE.md#requirements). Voxtype is not required.
+[user guide](docs/USER_GUIDE.md#requirements).
 
 From the downloaded source directory, in your logged-in Omarchy session:
 
@@ -62,21 +60,21 @@ python3 setup.py check
 python3 setup.py install
 ```
 
-Setup checks system dependencies, creates a dedicated Python environment and
-installs the backend service and native plugin. It may download Python and
-Python packages, but does not install system packages automatically.
+Setup installs the speech recognition service and microphone panel. It checks
+required system tools and may download Python and supporting packages. If a
+system tool is missing, setup tells you what to install before trying again.
 
 Open the microphone panel and choose **Download recommended** to fetch the
 approximately 2.55 GB Parakeet ONNX model, or select an existing compatible model.
-The current engine supports Parakeet TDT 0.6B v3 ONNX; arbitrary speech models are
-not interchangeable. Downloading a model is an explicit action.
+Supported model: **Parakeet TDT 0.6B v3 ONNX**. Other model formats are not
+supported. The download begins only when you choose it in the panel.
 
 F9 is used only when available. If it conflicts, choose an unused shortcut in
-the panel. For intentional migration from the stock Voxtype shortcut, see
+the panel. To reuse an existing Omarchy dictation shortcut, see
 [shortcut conflicts](docs/USER_GUIDE.md#shortcut-conflicts).
 
-Installing the frontend through Omarchy alone does not set up the backend;
-[the setup command is still required](docs/USER_GUIDE.md#install).
+**Installing through Omarchy still requires the setup command above.** Adding
+the plugin alone does not install its speech recognition service.
 
 ## Use
 
@@ -85,8 +83,8 @@ Installing the frontend through Omarchy alone does not set up the backend;
 3. Focus a text field and press your shortcut to start speaking.
 4. Press the shortcut again to stop; wait for remaining text to finish.
 
-**Ready** means the model is loaded and warmed, the plugin is connected and a
-shortcut is configured. It does not test the microphone or the target text field.
+**Ready** means the speech service and selected model are available and a
+shortcut is set. You still need a working microphone and a selected text field.
 **Preview** lets you adjust the overlay without recording.
 
 ## Important limits and privacy
@@ -98,12 +96,11 @@ limit. See [storage and lifecycle](docs/USER_GUIDE.md#files-privacy-and-lifecycl
 
 Keep focus stable while text is being inserted. Live mode follows the focused
 window, including pending words. After-recording output stops on a detected
-window change, but queued characters can still reach the next field. Tests
-observed one character after a focus switch; this is not a guaranteed maximum.
+window change, but text already being sent can still reach the next field.
 Switching fields within the same window cannot be detected. The overlay follows
 the active screen but cannot tell whether a text field is selected. Select an
-editable field after switching tabs, windows or workspaces before continuing;
-virtual keyboard input outside a text field may trigger application actions.
+editable field after switching tabs, windows or workspaces before continuing.
+Typing outside a text field may trigger application shortcuts instead.
 
 Punctuation comes from the recognition model and may interpret pauses as sentence
 boundaries. Recognition accuracy and speed depend on speech and hardware.
@@ -134,25 +131,4 @@ Omarchy's repository workflow, follow the additional
 - [Tests](docs/TESTING.md) and [release checklist](docs/RELEASE_CHECKLIST.md).
 - [MIT license](LICENSE) and [third-party/model notices](THIRD_PARTY_NOTICES.md).
 
-Publication uses an explicit export:
-
-```sh
-python3 setup.py export --output /path/to/new-release-directory
-```
-
-The export includes source, tests, documentation and
-licenses, excluding personal settings, recordings, models and development notes.
-
-## Repository layout
-
-- `omarchy-plugin/`: native QML frontend and its control helpers.
-- `dictation.py`, `streaming.py`, `model_store.py`: backend and model handling.
-- `docs/`: user guide, release checks and testing documentation.
-- `preview.png`: the screenshot shown above.
-- `tests/`: automated Python and QML tests.
-- `tools/`: manual development probes, excluded from the release export.
-- `setup.py` and `manifest.json`: installation and Omarchy plugin entry points.
-
-The root backend modules are deliberately kept beside the installer; this small
-project does not need a separate Python package layout. Historical work notes
-and private validation logs are stored outside the repository.
+For source layout and release preparation, see [development notes](docs/TESTING.md#source-layout-and-release-export).
