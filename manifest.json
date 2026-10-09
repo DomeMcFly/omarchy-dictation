@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "dominic.live-dictation",
+  "name": "Dictation",
+  "version": "0.2.0",
+  "author": "Dominic",
+  "description": "Local dictation into the focused text field, live or after recording.",
+  "kinds": [
+    "bar-widget",
+    "service"
+  ],
+  "entryPoints": {
+    "barWidget": "omarchy-plugin/BarWidget.qml",
+    "service": "omarchy-plugin/Service.qml"
+  },
+  "barWidget": {
+    "displayName": "Dictation",
+    "description": "Microphone icon with status and native settings.",
+    "category": "Accessibility",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
