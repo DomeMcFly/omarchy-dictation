@@ -5,9 +5,9 @@ recognition to Omarchy, with live text insertion or transcription after recordin
 Start and stop with one shortcut, and customize the recording indicator from a
 native microphone panel. No account or cloud transcription service required.
 
-![Dictation settings and waveform preview in Omarchy](preview.png)
+![Dictation settings in Omarchy](preview.png)
 
-*Dictation settings with a waveform preview.*
+*Dictation settings with shortcut capture and recording indicator controls.*
 
 ### Settings at a glance
 
