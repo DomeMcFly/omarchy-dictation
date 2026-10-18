@@ -35,8 +35,8 @@ native microphone panel. No account or cloud transcription service required.
   position, screen, size, opacity and animation controls.
 - **Model setup in the panel:** download the recommended compatible model or
   select a compatible local folder.
-- **Recovery when something fails:** retains incomplete dictations and offers
-  actions to copy the latest text or open saved dictations.
+- **Recovery when something fails:** retains incomplete dictations locally;
+  saved text and audio can be accessed in the dictation history folder.
 
 ## Current status
 

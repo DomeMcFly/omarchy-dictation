@@ -71,7 +71,7 @@ class FailureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(dictation, 'HISTORY', Path(directory)), patch.object(dictation, 'transcription_mode', return_value='live'), patch.object(dictation.Session, 'capture_loop', capture), patch('streaming.OnlineRecognizer', Recognizer), patch.object(dictation, 'atomic', side_effect=atomic), patch.object(dictation, 'notify'):
             real_delivery = dictation.Delivery
             target = {'address': 'test', 'pid': 1}
-            with patch.object(dictation, 'Delivery', side_effect=lambda t, fail, **kw: real_delivery(t, fail, run=lambda args, **kwargs: typed.append(args[-1]), focus=lambda: target, **kw)):
+            with patch.object(dictation, 'Delivery', side_effect=lambda t, fail, **kw: real_delivery(t, fail, run=lambda args, **kwargs: typed.append(kwargs['input'].decode('utf-8')), focus=lambda: target, **kw)):
                 session = dictation.Session(SimpleNamespace(model=None), target)
                 session.thread.join(4)
             self.assertFalse(session.thread.is_alive())
@@ -111,23 +111,14 @@ class FailureTests(unittest.TestCase):
             self.assertFalse(delivery.send('test'))
         process.kill.assert_called_once()
 
-    def test_printable_keys_never_use_physical_control_slots(self):
-        text = 'Browser dictation: Grüße und Äpfel.'
-        args = dictation.wtype_command(text)[1:]
-        reserved = []
-        presses = []
-        for flag, value in zip(args[::2], args[1::2]):
-            (reserved if flag == '-p' else presses).append(value)
-        slots = {name: index + 1 for index, name in enumerate(reserved)}
-        self.assertTrue(all(slots[name] in dictation.TEXT_KEY_SLOTS for name in presses))
-        self.assertEqual(''.join(chr(int(name[1:], 16)) for name in presses), text)
-
     def test_many_distinct_unicode_characters_are_bounded_without_loss(self):
         text = ''.join(chr(0x400 + i) for i in range(220))
         chunks = list(dictation.delivery_chunks(text))
         self.assertEqual(''.join(chunks), text)
         self.assertTrue(all(len(c) <= 120 and len(set(c)) <= len(dictation.TEXT_KEY_SLOTS) for c in chunks))
-        for chunk in chunks: dictation.wtype_command(chunk)
+        for chunk in chunks:
+            self.assertEqual(dictation.wtype_command()[1], '-')
+            self.assertNotIn(chunk, dictation.wtype_command())
 
     def test_old_frontend_cannot_cancel_new_frontend(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(dictation, 'ROOT', Path(directory)):

@@ -222,6 +222,20 @@ def install(python='3.12', shortcut=None, replace_voxtype=False):
             ledger['files'][key]['installed_sha256'] = digest(path)
         run('omarchy', 'plugin', 'disable', PLUGIN_ID, check=False)
         run('systemctl', '--user', 'stop', 'voice-dictation.service', check=False)
+        if loc['plugin'].resolve() != SOURCE:
+            desired = {loc['plugin'] / source.relative_to(payload)
+                       for source in payload.rglob('*') if source.is_file()}
+            # Remove retired files only if setup owns their unchanged bytes.
+            # Retaining old QML/tests can leave an updated plugin inconsistent.
+            for name, entry in list(ledger['files'].items()):
+                path = Path(name)
+                if path.is_relative_to(loc['plugin']) and path not in desired:
+                    if path.exists():
+                        if digest(path) != entry.get('installed_sha256'):
+                            raise RuntimeError(f'Retired installed file was modified: {path}')
+                        rollback.append((path, path.read_bytes(), path.stat().st_mode & 0o777))
+                        path.unlink()
+                    del ledger['files'][name]
         for name in RUNTIME_FILES:
             write(runtime / name, (SOURCE / name).read_bytes())
         if loc['plugin'].resolve() != SOURCE:

@@ -30,17 +30,18 @@ Scope {
     property var shortcuts: ({primary: "", alternative: ""})
     property bool shortcutsLoaded: false
     property bool shortcutError: false
+    property bool shortcutReplaceVoxtype: false
     property string shortcutMessage: ""
     readonly property bool shortcutsBusy: keysProc.running
     readonly property string shortcutLabel: [shortcuts.primary, shortcuts.alternative].filter(k => k).join(" / ")
     function loadShortcuts() {
         if (!keysProc.running) { keysProc.result = ""; keysProc.exec(["python3", helper, "keys-read"]); }
     }
-    function saveShortcuts(primary) {
+    function saveShortcuts(primary, replaceVoxtype = false) {
         if (keysProc.running) return;
         shortcutMessage = "Checking and applying global shortcuts…";
         keysProc.result = "";
-        keysProc.exec(["python3", helper, "keys-save", JSON.stringify({primary: primary, alternative: ""})]);
+        keysProc.exec(["python3", helper, "keys-save", JSON.stringify({primary: primary, alternative: ""})].concat(replaceVoxtype ? ["--replace-voxtype"] : []));
     }
     Component.onCompleted: { loadShortcuts(); refreshModels(); }
     Process {
@@ -50,6 +51,7 @@ Scope {
         onExited: function(code) {
             try {
                 let data = JSON.parse(result);
+                root.shortcutReplaceVoxtype = data.replacement === "voxtype";
                 if (code !== 0 || data.error) {
                     root.shortcutError = true;
                     root.shortcutMessage = data.error || "Could not change shortcuts.";
@@ -60,7 +62,7 @@ Scope {
                     root.shortcutsLoaded = true;
                     root.shortcutMessage = command[2] === "keys-save" ? "Applied globally · listed in Omarchy keybindings" : "";
                 }
-            } catch (error) { root.shortcutError = true; root.shortcutMessage = "Could not load global shortcuts."; }
+            } catch (error) { root.shortcutReplaceVoxtype = false; root.shortcutError = true; root.shortcutMessage = "Could not load global shortcuts."; }
         }
     }
     property var modelCatalog: ({models: [], selected: "", downloadBytes: 2549805955})
@@ -276,6 +278,6 @@ Scope {
         function showPreview(): void { root.show(); root.preview = true; }
         function hide(): void { root.hide(); }
         function toggle(): void { root.toggle(); }
-        function status(): string { return JSON.stringify({state: root.phase, statusLabel: root.statusLabel, opened: root.opened, preferences: root.prefs, models: root.modelCatalog, modelBusy: root.modelBusy, modelMessage: root.modelMessage, shortcuts: root.shortcuts, panel: settings.geometry}); }
+        function status(): string { return JSON.stringify({state: root.phase, statusLabel: root.statusLabel, opened: root.opened, preferences: root.prefs, models: root.modelCatalog, modelBusy: root.modelBusy, modelMessage: root.modelMessage, shortcuts: root.shortcuts, shortcutEditor: settings.shortcutState, panel: settings.geometry}); }
     }
 }

@@ -52,7 +52,9 @@ def notify(message):
         LOG.warning("Notification unavailable")
 
 
-TEXT_KEY_SLOTS = tuple(list(range(2, 14)) + list(range(16, 28)) + list(range(30, 42)) + [43] + list(range(44, 54)) + [57])
+# wtype assigns stdin characters consecutive evdev codes after the reserved
+# entries. Keep each invocation entirely in the printable number row: 2..13.
+TEXT_KEY_SLOTS = tuple(range(2, 14))
 
 
 def delivery_chunks(text):
@@ -67,20 +69,16 @@ def delivery_chunks(text):
         yield chunk
 
 
-def wtype_command(text):
-    # Chromium interprets some physical control-key positions even when wtype
-    # supplies a printable keysym. Reserve those positions with release-only
-    # placeholders and emit text using ordinary text-key positions.
-    names = [{"\n": "Return", "\t": "Tab"}.get(c, "U" + format(ord(c), "04X")) for c in text]
-    unique = list(dict.fromkeys(names))
-    if not unique or len(unique) > len(TEXT_KEY_SLOTS):
-        raise ValueError("Invalid keyboard chunk")
-    assignments = dict(zip(TEXT_KEY_SLOTS, unique))
-    args = ["wtype"]
-    for slot in range(1, TEXT_KEY_SLOTS[len(unique) - 1] + 1):
-        args += ["-p", assignments.get(slot, "U" + format(0xE000 + slot, "04X"))]
-    for name in names:
-        args += ["-k", name]
+def wtype_command():
+    # Reserve Escape (evdev 1). Up to twelve distinct stdin characters then
+    # occupy 2..13, avoiding function/modifier/lock keys and global actions.
+    # Both text and reversible encodings of it stay out of process arguments.
+    # wtype allocates all argument keysyms before executing commands. Put stdin
+    # first so its complete keymap is uploaded before any key event; releasing
+    # the placeholder first makes real clients miss the following stdin text.
+    args = ["wtype", "-"]
+    for slot in range(1, min(TEXT_KEY_SLOTS)):
+        args += ["-p", "U" + format(0xE000 + slot, "04X")]
     return args
 
 
@@ -116,15 +114,19 @@ class Delivery:
 
     def type_chunk(self, chunk):
         if self.run is not subprocess.run:
-            # Injected transports receive the plain text for isolated tests.
-            self.run(["wtype", "--", chunk], check=True, capture_output=True, text=True, timeout=30)
+            # Injected transports mirror the production stdin interface.
+            self.run(["wtype", "-"], input=chunk.encode("utf-8"),
+                     check=True, capture_output=True, timeout=30)
         else:
-            args = wtype_command(chunk)
+            args = wtype_command()
             # Monitor a running after-recording delivery. Virtual keyboard events
             # already accepted by the compositor cannot be recalled.
-            with subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as process:
+            with subprocess.Popen(args, stdin=subprocess.PIPE,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as process:
                 deadline = time.monotonic() + 30
                 try:
+                    process.stdin.write(chunk.encode("utf-8"))
+                    process.stdin.close()
                     while process.poll() is None:
                         if self.abort_event.is_set() or (not self.follow_focus and self.focus() != self.target):
                             raise RuntimeError("Target window changed during output")
@@ -136,6 +138,11 @@ class Delivery:
                     if process.returncode:
                         raise subprocess.CalledProcessError(process.returncode, args)
                 finally:
+                    if process.stdin and not process.stdin.closed:
+                        try:
+                            process.stdin.close()
+                        except OSError:
+                            pass
                     if process.poll() is None:
                         process.kill()
                     process.wait()
@@ -587,6 +594,17 @@ def client(action):
     return response
 
 
+def shortcut_capture_active():
+    # The panel holds this lock only while its recorder owns keyboard focus.
+    # Kernel locks are released on exit, including shell crashes or reloads.
+    with (ROOT / "shortcut-capture.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+    return False
+
+
 def main():
     os.umask(0o077)
     ROOT.mkdir(mode=0o700, exist_ok=True)
@@ -594,6 +612,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["serve", "toggle", "stop", "status", "copy-last"], default="toggle", nargs="?")
     args = parser.parse_args()
+    if args.action == "toggle" and shortcut_capture_active():
+        print(json.dumps({"ignored": "shortcut-capture"}))
+        return
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if args.action == "serve":
         with (ROOT / "daemon.lock").open("w") as lock:

@@ -1,10 +1,27 @@
-# Release acceptance — 2026-10-09
+# Release acceptance
 
 Status: 0.2.0 — preview release. The automated/local acceptance below is complete;
 a fresh operating-system session and structured natural microphone acceptance remain open.
 The repository is public; marketplace listing is pending.
 
-## Completed on the local baseline
+## Recheck — 2026-10-18
+
+- [x] 72 Python regression tests and 41 QML checks pass on the current source.
+- [x] Real `wtype` integration in both delivery modes checks the live process
+      command lines: they contain only fixed control arguments. Dictation text
+      travels through stdin, including Unicode. The receiver reconstructs the
+      exact text and verifies printable physical keycodes and keymap ordering.
+- [x] Shortcut recorder covers modifier previews, F9, Super, reset, blur,
+      explicit Apply, conflict rejection and explicit stock Voxtype replacement.
+- [x] Update removes unchanged retired managed files, preserves user files and
+      restores removed files if the update fails.
+- [x] Documentation matches the removal of the panel's recovery message box;
+      local history remains retained and its location/deletion are documented.
+
+These checks do not close the fresh-system and structured physical-microphone
+acceptance items below. The release remains a preview.
+
+## Completed on the local baseline — 2026-10-09
 
 - [x] 66 Python regression tests, including disk-write failures, cancellation,
       progress-aware output draining, model states, shortcut ownership and setup.

@@ -4,12 +4,13 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from itertools import chain, repeat
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
 
-from dictation import Delivery, Session
+from dictation import Delivery, Session, wtype_command
 from streaming import OnlineRecognizer, RATE, Word, pending_words, words_from_result
 
 
@@ -121,14 +122,40 @@ class DeliveryTests(unittest.TestCase):
     def setUp(self):
         self.target = {"address": "0x123", "pid": 123}
 
+    def test_production_wtype_delivery_keeps_text_out_of_process_arguments(self):
+        text = "Grüße, Straße und Äpfel."
+        processes = []
+        def start(*args, **kwargs):
+            process = Mock()
+            process.__enter__ = Mock(return_value=process)
+            process.__exit__ = Mock(return_value=False)
+            process.stdin.closed = False
+            process.stdin.close.side_effect = lambda: setattr(process.stdin, "closed", True)
+            process.poll.return_value = 0
+            process.returncode = 0
+            processes.append(process)
+            return process
+
+        with patch("dictation.subprocess.Popen", side_effect=start) as popen:
+            delivery = Delivery(self.target, Mock(), focus=lambda: self.target)
+            self.assertTrue(delivery.send(text))
+
+        for call in popen.call_args_list:
+            self.assertEqual(call.args[0], wtype_command())
+        received = b''.join(call.args[0] for process in processes for call in process.stdin.write.call_args_list)
+        self.assertEqual(received, text.encode('utf-8'))
+        for process in processes:
+            process.stdin.close.assert_called_once()
+
     def test_long_text_and_unicode_are_delivered_in_order(self):
         run = Mock()
         delivery = Delivery(self.target, Mock(), run=run, focus=lambda: self.target)
         text = "Äpfel, Grüße und Straße. " * 300
         self.assertTrue(delivery.send(text))
-        self.assertEqual("".join(call.args[0][-1] for call in run.call_args_list), text)
+        self.assertEqual("".join(call.kwargs["input"].decode("utf-8") for call in run.call_args_list), text)
         self.assertEqual(delivery.delivered, text)
-        self.assertTrue(all(len(call.args[0][-1]) <= 120 for call in run.call_args_list))
+        self.assertTrue(all(call.args[0] == ["wtype", "-"] for call in run.call_args_list))
+        self.assertTrue(all(len(call.kwargs["input"].decode("utf-8")) <= 120 for call in run.call_args_list))
 
     def test_focus_change_never_types_into_other_window(self):
         run, failure = Mock(), Mock()
@@ -162,7 +189,7 @@ class DeliveryTests(unittest.TestCase):
         failure.assert_not_called()
 
     def test_follow_focus_waits_through_empty_workspace_and_query_failure(self):
-        focus = Mock(side_effect=[{}, subprocess.TimeoutExpired('hyprctl', 2), self.target])
+        focus = Mock(side_effect=chain([{}, subprocess.TimeoutExpired('hyprctl', 2)], repeat(self.target)))
         stop = Mock()
         stop.wait.return_value = False
         run, failure = Mock(), Mock()
@@ -171,7 +198,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertTrue(delivery.send("kept until focus returns"))
         self.assertEqual(stop.wait.call_count, 2)
         self.assertFalse(delivery.waiting_for_focus)
-        run.assert_called_once()
+        self.assertEqual(b''.join(call.kwargs['input'] for call in run.call_args_list), b'kept until focus returns')
         failure.assert_not_called()
 
     def test_stopping_without_a_window_preserves_text_instead_of_hanging(self):

@@ -17,7 +17,14 @@ shortcut ownership and installation lifecycle. Temporary directories and mocked
 OS commands isolate destructive/failure scenarios. Tests never record a real
 microphone, type into user windows or change real keybindings.
 
+The keyboard transport integration runs the installed `wtype` binary against a
+private Wayland protocol receiver. It checks the actual emitted physical keycodes
+and reconstructs the Unicode text for both delivery modes, without connecting to
+the user's compositor. It requires permission to create a local Unix socket.
+
 QML tests exercise the production dropdown with lightweight theme fixtures.
+They also send mouse and keyboard events through the production shortcut recorder,
+including modifier previews, Super, reset, explicit Apply and focus cancellation.
 They do not establish that every native panel/lifecycle path is correct.
 
 See [release checks](RELEASE_CHECKLIST.md) for real desktop acceptance and remaining limitations.

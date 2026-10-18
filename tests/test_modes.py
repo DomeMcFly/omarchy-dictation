@@ -38,7 +38,7 @@ class ModeTests(unittest.TestCase):
             if mode == 'live': session.frames.put([0.1])
             session.frames.put(None)
 
-        with tempfile.TemporaryDirectory() as directory, patch.object(dictation, 'HISTORY', Path(directory)), patch.object(dictation, 'transcription_mode', return_value=mode), patch.object(dictation, 'active_window', side_effect=lambda: focused[0]), patch.object(dictation.Session, 'capture_loop', capture), patch('streaming.OnlineRecognizer', Recognizer), patch.object(dictation, 'notify'), patch.object(dictation, 'Delivery', side_effect=lambda t, fail, **kw: delivery_class(t, fail, focus=lambda: focused[0], run=lambda args, **kwargs: typed.append(args[-1]), **kw)):
+        with tempfile.TemporaryDirectory() as directory, patch.object(dictation, 'HISTORY', Path(directory)), patch.object(dictation, 'transcription_mode', return_value=mode), patch.object(dictation, 'active_window', side_effect=lambda: focused[0]), patch.object(dictation.Session, 'capture_loop', capture), patch('streaming.OnlineRecognizer', Recognizer), patch.object(dictation, 'notify'), patch.object(dictation, 'Delivery', side_effect=lambda t, fail, **kw: delivery_class(t, fail, focus=lambda: focused[0], run=lambda args, **kwargs: typed.append(kwargs['input'].decode('utf-8')), **kw)):
             session = dictation.Session(SimpleNamespace(model=None), target)
             session_ref.append(session)
             self.assertTrue(ready.wait(2))

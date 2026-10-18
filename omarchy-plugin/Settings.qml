@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Dialogs
 import QtQuick.Window as Windows
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
@@ -14,10 +15,33 @@ Item {
     id: root
     required property var api
     property bool addingModel: false
+    property bool captureGuardReady: false
+    readonly property bool shortcutFocused: opened && shortcutRecorder.activeFocus
+    readonly property var shortcutState: ({focused: shortcutFocused, ready: captureGuardReady && shortcutInhibitor.active, display: shortcutRecorder.displayText, pending: shortcutRecorder.pending, canApply: shortcutRecorder.canApply, error: shortcutRecorder.errorText})
     readonly property bool opened: window.open
+    onOpenedChanged: if (!opened) shortcutRecorder.reset()
     readonly property var geometry: ({x: window.cardOrigin.x, y: window.cardOrigin.y, width: window.contentWidth, height: window.contentHeight, scrollHeight: settingsScroll.height, fieldsHeight: settingsFields.implicitHeight, scrollable: settingsScroll.interactive, screen: window.screen ? window.screen.name : ""})
     function show() { window.open = true; }
-    function hide() { modelDropdown.close(); styleDropdown.close(); positionDropdown.close(); screenDropdown.close(); window.open = false; }
+    function hide() { shortcutRecorder.reset(); modelDropdown.close(); styleDropdown.close(); positionDropdown.close(); screenDropdown.close(); window.open = false; }
+    Process {
+        id: captureGuard
+        command: ["python3", root.api.helper, "shortcut-capture"]
+        running: root.shortcutFocused
+        stdout: SplitParser {
+            onRead: function(line) {
+                try { root.captureGuardReady = JSON.parse(line).ready === true; }
+                catch (error) { root.captureGuardReady = false; }
+            }
+        }
+        onRunningChanged: if (!running) root.captureGuardReady = false
+        onExited: root.captureGuardReady = false
+    }
+    ShortcutInhibitor {
+        id: shortcutInhibitor
+        window: shortcutRecorder.QsWindow.window
+        enabled: root.shortcutFocused && root.captureGuardReady
+        onCancelled: { shortcutRecorder.reset(); content.forceActiveFocus(); }
+    }
     Windows.Window {
         id: dialogHost
         visible: false
@@ -62,7 +86,7 @@ Item {
         owner: root.api.popupOwner || root.api
         focusTarget: content
         contentWidth: fittedContentWidth(Style.space(520))
-        contentHeight: cappedContentHeight(contentHeader.implicitHeight + settingsFields.implicitHeight + content.spacing + window.padding * 2 + Border.top(window.borderSpec) + Border.bottom(window.borderSpec) + (recoveryBox.visible ? recoveryBox.implicitHeight + content.spacing : 0) + 2)
+        contentHeight: cappedContentHeight(contentHeader.implicitHeight + settingsFields.implicitHeight + content.spacing + window.padding * 2 + Border.top(window.borderSpec) + Border.bottom(window.borderSpec) + 2)
             ColumnLayout {
                 id: content
                 anchors.fill: parent
@@ -143,7 +167,7 @@ Item {
                         }
                         RowLayout {
                             Layout.fillWidth: true
-                            Caption { text: "Transcription" }
+                            Caption { id: transcriptionLabel; text: "Transcription" }
                             Ui.Button {
                                 text: "Live"; bordered: true; focusable: true
                                 Layout.fillWidth: true; Layout.preferredWidth: 1
@@ -159,25 +183,25 @@ Item {
                         }
                         RowLayout {
                             Layout.fillWidth: true
-                            Caption { text: "Shortcut" }
-                            Ui.TextField {
-                                id: primaryShortcut
+                            Caption { text: "Shortcut"; Layout.preferredWidth: transcriptionLabel.implicitWidth }
+                            ShortcutRecorder {
+                                id: shortcutRecorder
                                 Layout.fillWidth: true
-                                text: root.api.shortcuts.primary
-                                placeholderText: "F9"
-                                enabled: !root.api.shortcutsBusy
+                                enabled: root.api.shortcutsLoaded
+                                value: root.api.shortcuts.primary || ""
+                                busy: root.api.shortcutsBusy
+                                captureReady: root.captureGuardReady && shortcutInhibitor.active
+                                externalError: root.api.shortcutError ? root.api.shortcutMessage : ""
+                                replacementAvailable: root.api.shortcutReplaceVoxtype
+                                onEditingStarted: {
+                                    root.api.shortcutError = false;
+                                    root.api.shortcutReplaceVoxtype = false;
+                                    root.api.shortcutMessage = "";
+                                }
+                                onSaveRequested: shortcut => root.api.saveShortcuts(shortcut)
+                                onReplaceRequested: shortcut => root.api.saveShortcuts(shortcut, true)
+                                onCancelled: content.forceActiveFocus()
                             }
-                            Ui.Button {
-                                text: root.api.shortcutsBusy ? "Applying…" : "Apply"
-                                focusable: true
-                                enabled: !root.api.shortcutsBusy && primaryShortcut.text.trim().length > 0 && primaryShortcut.text !== root.api.shortcuts.primary
-                                onClicked: root.api.saveShortcuts(primaryShortcut.text)
-                            }
-                        }
-                        Caption {
-                            text: root.api.shortcutMessage
-                            visible: text.length > 0
-                            wrapMode: Text.WordWrap; Layout.fillWidth: true; font.pixelSize: Style.font.caption; color: Color.accent
                         }
                         Ui.PanelSeparator { Layout.fillWidth: true }
 
@@ -267,43 +291,7 @@ Item {
 
                     }
                 }
-                ColumnLayout {
-                    id: recoveryBox
-                    Layout.fillWidth: true
-                    visible: root.api.serviceUnavailable || root.api.messageError || root.api.recoveryError.length > 0
-                    Caption {
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        color: Color.accent; font.pixelSize: Style.font.caption
-                        text: root.api.messageError ? root.api.message : root.api.recoveryError || "Start the dictation service to continue."
-                    }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: Style.spacing.xs
-                        Ui.Button {
-                            text: "Start service"; focusable: true
-                            visible: root.api.serviceUnavailable
-                            onClicked: root.api.action("start-service")
-                        }
-                        Ui.Button {
-                            text: "Copy latest"; focusable: true
-                            visible: root.api.recoveryError.length > 0
-                            onClicked: root.api.action("copy-last")
-                        }
-                        Ui.Button {
-                            text: "Open dictations"; focusable: true
-                            visible: root.api.recoveryError.length > 0
-                            onClicked: root.api.action("open-history")
-                        }
-                        Ui.Button {
-                            text: "Dismiss"; focusable: true
-                            visible: root.api.messageError || root.api.recoveryError.length > 0
-                            onClicked: {
-                                root.api.messageError = false;
-                                if (root.api.recoveryError.length > 0) root.api.action("dismiss-recovery");
-                            }
-                        }
-                    }
-                }
+
             }
     }
 }

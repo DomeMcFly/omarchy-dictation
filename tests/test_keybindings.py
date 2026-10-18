@@ -18,6 +18,8 @@ class KeybindingTests(unittest.TestCase):
     def test_normalization_and_alternative(self):
         self.assertEqual(keys.normalized(dict(primary='ctrl + win + d', alternative='')), dict(primary='SUPER + CTRL + D', alternative=''))
         self.assertEqual(keys.normalize('Strg + Space'), 'CTRL + space')
+        self.assertEqual(keys.normalize(keys.normalize('SUPER + PageUp')), 'SUPER + Prior')
+        self.assertEqual(keys.normalize(keys.normalize('CTRL + PageDown')), 'CTRL + Next')
 
     def test_invalid_and_injectable_shortcuts_are_rejected(self):
         for value in ('Fn + F9', 'A', 'SHIFT + X', 'SUPER + SUPER + X', 'F9"; os.execute("bad")', ''):
@@ -43,6 +45,20 @@ class KeybindingTests(unittest.TestCase):
         self.assertTrue(after.startswith('local unrelated = true\n'))
         self.assertTrue(after.endswith('\n-- other settings\n'))
         self.assertNotIn('Zenbook', after)
+
+    def test_voxtype_replacement_is_explicit_and_never_overrides_other_conflicts(self):
+        raw = 'bindd\n\tmodmask: 0\n\tkey: F9\n\tdescription: Start dictation (push-to-talk)\n'
+        menu = 'F9 → Start dictation (push-to-talk)\nF9 → Stop dictation (push-to-talk)'
+        old = dict(primary='ALT + K', alternative='')
+        with patch.object(keys, 'is_stock_voxtype', side_effect=lambda row: row.get('description', '').endswith('(push-to-talk)')):
+            with self.assertRaises(keys.VoxtypeConflict) as error:
+                keys.check_conflicts(keys.DEFAULTS, old, raw, menu)
+            self.assertEqual(error.exception.replacement, 'voxtype')
+            keys.check_conflicts(keys.DEFAULTS, old, raw, menu, replace_voxtype=True)
+            foreign = raw + 'bindd\n\tmodmask: 0\n\tkey: F9\n\tdescription: Personal action\n'
+            for replace in (False, True):
+                with self.assertRaisesRegex(ValueError, 'Personal action'):
+                    keys.check_conflicts(keys.DEFAULTS, old, foreign, menu, replace_voxtype=replace)
 
     def test_apply_failure_restores_original_file(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -113,6 +113,48 @@ class SetupTests(unittest.TestCase):
             self.install()
         self.assertEqual(self.loc['launcher'].read_text(), 'user change')
 
+    def add_retired_file(self):
+        path = self.loc['plugin'] / 'tests/qml/tst_retired.qml'
+        path.write_text('retired managed fixture')
+        ledger = json.loads(self.loc['ledger'].read_text())
+        ledger['files'][str(path)] = {'backup': None, 'mode': 0o600,
+                                     'installed_sha256': installer.digest(path)}
+        self.loc['ledger'].write_text(json.dumps(ledger))
+        return path
+
+    def test_update_removes_only_unchanged_retired_managed_files(self):
+        self.install()
+        retired = self.add_retired_file()
+        unrelated = retired.with_name('personal.qml')
+        unrelated.write_text('user file')
+        self.install()
+        self.assertFalse(retired.exists())
+        self.assertEqual(unrelated.read_text(), 'user file')
+        self.assertNotIn(str(retired), json.loads(self.loc['ledger'].read_text())['files'])
+
+    def test_update_restores_retired_files_on_failure(self):
+        self.install()
+        retired = self.add_retired_file()
+        original = retired.read_bytes()
+        original_run = installer.run.side_effect
+        def run(*args, **kwargs):
+            if args[:4] == ('systemctl', '--user', 'enable', '--now'):
+                raise RuntimeError('simulated service failure')
+            return original_run(*args, **kwargs)
+        with patch.object(installer, 'run', side_effect=run):
+            with self.assertRaisesRegex(RuntimeError, 'simulated'):
+                self.install()
+        self.assertEqual(retired.read_bytes(), original)
+        self.assertIn(str(retired), json.loads(self.loc['ledger'].read_text())['files'])
+
+    def test_update_preserves_edited_retired_files(self):
+        self.install()
+        retired = self.add_retired_file()
+        retired.write_text('user edit')
+        with self.assertRaisesRegex(RuntimeError, 'modified'):
+            self.install()
+        self.assertEqual(retired.read_text(), 'user edit')
+
     def test_enable_failure_restores_previous_unit_and_plugin_placement(self):
         self.install()
         config = self.loc['config']/'omarchy/shell.json'

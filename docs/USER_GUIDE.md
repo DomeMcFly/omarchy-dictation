@@ -51,6 +51,12 @@ A conflict leaves the existing binding intact; choose an unused shortcut in the
 panel or pass `--shortcut 'SUPER + CTRL + D'` (also checked for conflicts).
 
 Omarchy may already assign a shortcut to Voxtype, its existing dictation tool.
+In the shortcut field, press the key combination and choose **Apply**. If only
+the known Omarchy Voxtype binding conflicts, the button changes to **Replace
+Voxtype**. Click it to explicitly replace that binding. Other conflicts remain
+blocked. On keyboards where Fn selects the function keys, press Fn + F9 to
+record F9; Fn is not stored as a separate modifier.
+
 To intentionally replace that stock shortcut with Dictation:
 
 ```sh
@@ -73,6 +79,15 @@ change the clipboard.
 Click the microphone icon in the Omarchy bar to open settings. Click outside, press Escape or click the
 microphone again to dismiss. Opening settings finishes an active dictation first.
 Appearance settings save immediately; shortcut changes use **Apply**.
+
+Click the shortcut field, then hold Ctrl, Alt or Super and press one main key.
+Additional modifiers such as Shift are supported; function keys can stand alone.
+The field records keys directly, without a text cursor. A muted combination is
+an unsaved draft. **Apply** checks conflicts and saves it; Backspace restores the
+last saved shortcut. Escape or focusing another setting discards the draft.
+While the recorder owns focus, its keyboard inhibitor suppresses ordinary desktop
+shortcuts and the dictation toggle is paused. Compositor bindings that bypass
+inhibition and Super-plus-mouse window actions can still take precedence.
 **Preview** displays a simulated indicator without recording.
 
 - **Dictation:** compatible model, live/after-recording mode, global shortcut.
@@ -87,10 +102,9 @@ the same monitor keep the overlay visible. Selecting a named screen pins the
 overlay there; if that screen disconnects, it falls back to the active screen.
 
 
-Errors reveal contextual **Start service**, **Copy latest**, **Open dictations**
-and **Dismiss** actions. These actions do not clutter the normal view. A copy
-operation is explicit; pasting an entire recovered transcript can duplicate text
-already inserted, so inspect it first.
+Saved dictations are available in `~/.local/state/voice-dictation/`; see
+**Files, privacy and lifecycle** below. Inspect recovered text before pasting it,
+since some of it may already have been inserted.
 
 ### Status and indicators
 
@@ -109,14 +123,12 @@ elsewhere, check for conflicts there too.
 | Model unavailable | The saved model is missing, invalid or failed to load; see the error below Model. |
 | Set a shortcut / Check shortcut | Configure a shortcut or resolve the displayed shortcut error. |
 | Connecting… | Waiting for the speech service to connect to the panel. |
-| Service unavailable / Service stopped | Choose **Start service** in the panel. |
+| Service unavailable / Service stopped | Run `systemctl --user start voice-dictation.service`. |
 | Recording | Microphone session is active. |
 | Finishing… / Transcribing… | Recording has stopped; remaining recognition/output is being completed. |
 
 If switching to another model fails, an already loaded model remains usable;
 the status may return to Ready while the failed switch is explained below Model.
-An error from an earlier dictation stays visible until dismissed, even when
-you can start a new recording.
 
 The bar microphone opens settings. Its underline marks the open panel, matching
 Omarchy's other widgets. **Highlight microphone** colors it during recording.
@@ -187,8 +199,7 @@ Finish recording and wait for text insertion to complete first. Open
 
 Each dictation has a dated folder such as `20261009-221800-a1b2c3`. Delete the
 folders for dictations you no longer need. To also remove the separate copy of
-the latest transcript, delete `latest.txt`. If you delete a dictation offered for
-recovery, dismiss its recovery notice in the panel.
+the latest transcript, delete `latest.txt`.
 
 Keep `installation.json`, `setup.lock` and `backups/`: these belong to installation
 and removal, not dictation history. Do not delete the entire parent folder.

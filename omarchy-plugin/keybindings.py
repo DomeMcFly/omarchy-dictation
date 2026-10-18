@@ -17,12 +17,17 @@ END = '-- END Live Dictation key bindings'
 LEGACY = '-- Register after other unbinds so the F9 callback remains the final override.'
 DEFAULTS = dict(primary='F9', alternative='')
 MODS = {'SUPER': 64, 'CTRL': 4, 'ALT': 8, 'SHIFT': 1}
-ALIASES = {'WIN': 'SUPER', 'META': 'SUPER', 'CONTROL': 'CTRL', 'STRG': 'CTRL'}
+ALIASES = {'WIN': 'SUPER', 'META': 'SUPER', 'CONTROL': 'CTRL', 'STRG': 'CTRL',
+           'PRIOR': 'PAGEUP', 'NEXT': 'PAGEDOWN'}
 KEYS = {'SPACE': 'space', 'RETURN': 'Return', 'ENTER': 'Return', 'TAB': 'Tab',
         'ESCAPE': 'Escape', 'ESC': 'Escape', 'HOME': 'Home', 'END': 'End',
         'PAGEUP': 'Prior', 'PAGEDOWN': 'Next', 'INSERT': 'Insert', 'DELETE': 'Delete',
         'BACKSPACE': 'BackSpace', 'LEFT': 'Left', 'RIGHT': 'Right', 'UP': 'Up', 'DOWN': 'Down',
         'MINUS': 'minus', 'EQUAL': 'equal', 'COMMA': 'comma', 'PERIOD': 'period'}
+
+
+class VoxtypeConflict(ValueError):
+    replacement = 'voxtype'
 
 
 def normalize(value, optional=False):
@@ -124,6 +129,7 @@ def check_conflicts(data, old, raw, menu="", replace_voxtype=False):
         if parts and all(p in MODS for p in parts[:-1]):
             rows.append(dict(modmask=str(sum(MODS[p] for p in parts[:-1])),
                              key=parts[-1], description=description.strip()))
+    stock_conflicts = set()
     for row in rows:
         key = row.get('key', '').split(' + ')[-1].upper()
         ident = (int(row.get('modmask', 0)), key)
@@ -131,9 +137,14 @@ def check_conflicts(data, old, raw, menu="", replace_voxtype=False):
             continue
         if ident in owned and row.get('description', '').startswith(('Live Dictation: start/stop', 'Dictation: start/stop')):
             continue
-        if replace_voxtype and is_stock_voxtype(row):
+        if is_stock_voxtype(row):
+            if not replace_voxtype:
+                stock_conflicts.add(wanted[ident])
             continue
         raise ValueError('Already used: ' + wanted[ident] + ' — ' + row.get('description', 'another global shortcut'))
+    if stock_conflicts:
+        raise VoxtypeConflict('Used by Omarchy Voxtype: ' + ', '.join(sorted(stock_conflicts))
+                              + '. Replace Voxtype to use this shortcut for Dictation.')
 
 
 def is_stock_voxtype(row):

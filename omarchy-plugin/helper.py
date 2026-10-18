@@ -60,6 +60,15 @@ def request(action, **payload):
 def main():
     os.umask(0o077)
     action=sys.argv[1]
+    if action == 'shortcut-capture':
+        import fcntl
+        import signal
+        RUNTIME.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with (RUNTIME/'shortcut-capture.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            print(json.dumps({'ready': True}), flush=True)
+            while True:
+                signal.pause()
     if action.startswith('model-'):
         import model_store
         if action == 'model-list': return model_store.catalog()
@@ -83,7 +92,8 @@ def main():
         raise ValueError('Unknown model action')
     if action in ('keys-read' , 'keys-save'):
         import keybindings
-        return keybindings.read() if action == 'keys-read' else keybindings.apply(json.loads(sys.argv[2]))
+        return keybindings.read() if action == 'keys-read' else keybindings.apply(
+            json.loads(sys.argv[2]), replace_voxtype=sys.argv[3:] == ['--replace-voxtype'])
     if action=='read': return read()
     if action=='save': return save(json.loads(sys.argv[2]))
     if action in ('frontend', 'frontend-stop'): return request(action, token=sys.argv[2])
@@ -107,5 +117,5 @@ if __name__=='__main__':
     try:
         print(json.dumps(main(),ensure_ascii=False))
     except Exception as e:
-        print(json.dumps({'error':str(e)},ensure_ascii=False))
+        print(json.dumps({'error':str(e), 'replacement':getattr(e, 'replacement', '')},ensure_ascii=False))
         raise SystemExit(1)

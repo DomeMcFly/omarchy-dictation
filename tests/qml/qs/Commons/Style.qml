@@ -10,4 +10,5 @@ QtObject {
     function controlFill() { return "#333333" }
     function hoverFillFor() { return "#555555" }
     function hoverStateColor() { return "#ffffff" }
+    function space(value) { return value }
 }
